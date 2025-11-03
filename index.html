@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>나의 탄소 발자국 시뮬레이터</title>
+  <style>
+    /* ========== Base / Reset ========== */
+    *, *::before, *::after { box-sizing: border-box; }
+    :root {
+      --bg: #f6fbff;
+      --card: #ffffff;
+      --ink: #0f172a;
+      --muted: #5b647a;
+      --brand: #3b82f6;
+      --brand-2: #10b981;
+      --warn: #f59e0b;
+      --danger: #ef4444;
+      --ring: #bfdbfe;
+      --shadow: 0 10px 30px rgba(2, 12, 27, 0.06);
+      --radius: 16px;
+    }
+    html, body { height: 100%; }
+    body {
+      margin: 0; font-family: "Pretendard", system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans KR", Arial, sans-serif;
+      color: var(--ink); background: linear-gradient(180deg, #eef7ff, #f8fffb 60%, #ffffff 100%);
+    }
+    a { color: var(--brand); text-decoration: none; }
+    img { max-width: 100%; display: block; }
+
+    /* ========== Layout ========== */
+    .wrap { max-width: 980px; margin: 0 auto; padding: 24px; }
+
+    header.hero {
+      display: grid; gap: 16px; place-items: center;
+      text-align: center; padding: 48px 0 24px;
+    }
+    .badge { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; color: var(--brand);
+      background: #eaf2ff; border: 1px solid #d7e6ff; padding: 8px 12px; border-radius: 999px; }
+    .title { font-size: clamp(28px, 5vw, 44px); line-height: 1.1; margin: 0; }
+    .subtitle { color: var(--muted); margin: 6px 0 0; font-size: clamp(14px, 2.5vw, 18px); }
+    .cta-row { display: flex; gap: 12px; margin-top: 18px; flex-wrap: wrap; justify-content: center; }
+    .btn { cursor: pointer; border: 0; border-radius: 12px; padding: 12px 18px; font-weight: 700; transition: transform .06s ease, box-shadow .2s ease; }
+    .btn:active { transform: translateY(1px); }
+    .btn-primary { background: var(--brand); color: #fff; box-shadow: var(--shadow); }
+    .btn-secondary { background: #eaf8f1; color: #065f46; border: 1px solid #c7f0df; }
+
+    .card { background: var(--card); border: 1px solid #ecf0f7; border-radius: var(--radius); box-shadow: var(--shadow); }
+
+    /* ========== Form ========== */
+    section#simulator { margin-top: 18px; }
+    .form { padding: 24px; display: grid; gap: 22px; }
+    .q { padding: 18px; border: 1px solid #e8edf6; border-radius: 14px; background: #fcfdff; }
+    .q h3 { margin: 0 0 12px; font-size: 18px; display: flex; align-items: center; gap: 8px; }
+
+    .options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    @media (min-width: 760px) { .options { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+
+    .opt {
+      position: relative; background: #fff; border: 1px solid #e7ecf6; border-radius: 12px; padding: 12px; cursor: pointer;
+      display: flex; gap: 10px; align-items: center; transition: border-color .2s ease, box-shadow .2s ease, background .2s ease;
+    }
+    .opt:hover { border-color: var(--ring); box-shadow: 0 6px 16px rgba(17, 121, 255, .06); }
+    .opt input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+    .opt .emoji { font-size: 20px; }
+    .opt .label { font-weight: 600; }
+    .opt .desc { font-size: 12px; color: var(--muted); }
+
+    .actions { display: flex; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
+
+    .hint { font-size: 13px; color: var(--muted); }
+
+    /* ========== Results ========== */
+    #results { display: none; padding: 24px; }
+    .results-grid { display: grid; gap: 18px; }
+    @media (min-width: 900px) {
+      .results-grid { grid-template-columns: 1.2fr .8fr; align-items: start; }
+    }
+
+    .stat { display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: center; }
+    .stat .big { font-size: clamp(26px, 5vw, 38px); font-weight: 800; }
+    .stat .tag { font-size: 12px; padding: 6px 10px; border-radius: 999px; font-weight: 700; }
+    .tag.low { background: #eafff5; color: #065f46; border: 1px solid #bbf7d0; }
+    .tag.mid { background: #fff9ea; color: #92400e; border: 1px solid #fde68a; }
+    .tag.high{ background: #ffefef; color: #991b1b; border: 1px solid #fecaca; }
+
+    .bar-wrap { background: #f5f7fb; border: 1px solid #e8edf6; border-radius: 12px; padding: 14px; }
+    .bar { height: 14px; border-radius: 8px; background: linear-gradient(90deg, #60a5fa, #34d399 60%, #f59e0b 80%, #ef4444 100%); }
+
+    .pill { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 999px; border: 1px solid #e7ecf6; background: #fff; font-size: 12px; }
+
+    .tips { display: grid; gap: 10px; }
+    .tip { display: grid; grid-template-columns: 36px 1fr; gap: 8px; align-items: start; background: #fbfeff; border: 1px solid #e7f2ff; border-radius: 12px; padding: 12px; }
+
+    .muted { color: var(--muted); }
+    .footer-note { font-size: 12px; color: var(--muted); text-align: center; padding: 16px 0 20px; }
+
+    /* ========== Utility ========== */
+    .visually-hidden { position: absolute !important; height: 1px; width: 1px; overflow: hidden; clip: rect(1px, 1px, 1px, 1px); white-space: nowrap; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="hero">
+      <div class="badge">🌍 고등학생용 · 탄소발자국 체험 시뮬레이터</div>
+      <h1 class="title">나의 하루가 지구에 남기는 발자국은?</h1>
+      <p class="subtitle">간단한 질문에 답하면, 오늘의 <strong>CO₂e</strong> 배출량을 바로 확인하고 절감 팁까지 받아보아요.</p>
+      <div class="cta-row">
+        <a class="btn btn-primary" href="#simulator">시작하기</a>
+        <button class="btn btn-secondary" id="loadLast">마지막 결과 보기</button>
+      </div>
+    </header>
+
+    <!-- ========== FORM ========== -->
+    <section id="simulator" class="card">
+      <form class="form" id="footprintForm">
+        <div class="q">
+          <h3>🚶‍♀️ 이동수단 (등하교/이동) <span class="hint">— 주로 사용하는 수단 하나</span></h3>
+          <div class="options" role="radiogroup" aria-label="이동수단">
+            <label class="opt"><input type="radio" name="transport" value="walk"><span class="emoji">🚶</span><div><div class="label">도보</div><div class="desc">0 kg</div></div></label>
+            <label class="opt"><input type="radio" name="transport" value="bike"><span class="emoji">🚲</span><div><div class="label">자전거</div><div class="desc">0 kg</div></div></label>
+            <label class="opt"><input type="radio" name="transport" value="bus"><span class="emoji">🚌</span><div><div class="label">버스/지하철</div><div class="desc">≈ 1.0 kg</div></div></label>
+            <label class="opt"><input type="radio" name="transport" value="carpool"><span class="emoji">🚗👥</span><div><div class="label">자가용(카풀)</div><div class="desc">≈ 1.5 kg</div></div></label>
+            <label class="opt"><input type="radio" name="transport" value="car"><span class="emoji">🚗</span><div><div class="label">자가용(혼자)</div><div class="desc">≈ 3.0 kg</div></div></label>
+          </div>
+        </div>
+
+        <div class="q">
+          <h3>🍽️ 식습관 <span class="hint">— 하루 평균</span></h3>
+          <div class="options" role="radiogroup" aria-label="식습관">
+            <label class="opt"><input type="radio" name="diet" value="vegan"><span class="emoji">🥗</span><div><div class="label">비건/거의 채식</div><div class="desc">≈ 1.5 kg</div></div></label>
+            <label class="opt"><input type="radio" name="diet" value="veg"><span class="emoji">🥦</span><div><div class="label">락토/오보 채식</div><div class="desc">≈ 2.5 kg</div></div></label>
+            <label class="opt"><input type="radio" name="diet" value="mixed_low"><span class="emoji">🍗</span><div><div class="label">혼합(육류 적음)</div><div class="desc">≈ 3.5 kg</div></div></label>
+            <label class="opt"><input type="radio" name="diet" value="mixed_high"><span class="emoji">🍖</span><div><div class="label">육류 위주</div><div class="desc">≈ 5.0 kg</div></div></label>
+          </div>
+        </div>
+
+        <div class="q">
+          <h3>💡 전기 사용 습관 <span class="hint">— 가전·조명</span></h3>
+          <div class="options" role="radiogroup" aria-label="전기 사용">
+            <label class="opt"><input type="radio" name="electric" value="low"><span class="emoji">🔌</span><div><div class="label">절약형</div><div class="desc">멀티탭 끔/절전모드 — ≈ 0.8 kg</div></div></label>
+            <label class="opt"><input type="radio" name="electric" value="mid"><span class="emoji">💡</span><div><div class="label">보통</div><div class="desc">대부분 평균 — ≈ 1.5 kg</div></div></label>
+            <label class="opt"><input type="radio" name="electric" value="high"><span class="emoji">🖥️</span><div><div class="label">많이 씀</div><div class="desc">PC/조명 장시간 — ≈ 3.0 kg</div></div></label>
+          </div>
+        </div>
+
+        <div class="q">
+          <h3>🧥 소비 습관(의류) <span class="hint">— 한 달 기준 빈도</span></h3>
+          <div class="options" role="radiogroup" aria-label="소비(의류)">
+            <label class="opt"><input type="radio" name="shopping" value="rare"><span class="emoji">🧵</span><div><div class="label">거의 안 삼</div><div class="desc">재활용·수선 — ≈ 0.2 kg/일</div></div></label>
+            <label class="opt"><input type="radio" name="shopping" value="normal"><span class="emoji">👕</span><div><div class="label">보통(1~3회)</div><div class="desc">≈ 0.5 kg/일</div></div></label>
+            <label class="opt"><input type="radio" name="shopping" value="often"><span class="emoji">🛍️</span><div><div class="label">잦음(4회 이상)</div><div class="desc">패스트패션 — ≈ 1.0 kg/일</div></div></label>
+          </div>
+        </div>
+
+        <div class="q">
+          <h3>♻️ 분리배출·폐기물 <span class="hint">— 실천 정도</span></h3>
+          <div class="options" role="radiogroup" aria-label="분리배출">
+            <label class="opt"><input type="radio" name="waste" value="good"><span class="emoji">♻️</span><div><div class="label">항상 함</div><div class="desc">세척/분리 철저 — ≈ 0.2 kg</div></div></label>
+            <label class="opt"><input type="radio" name="waste" value="mid"><span class="emoji">🗑️</span><div><div class="label">가끔 함</div><div class="desc">혼합 배출 — ≈ 0.5 kg</div></div></label>
+            <label class="opt"><input type="radio" name="waste" value="poor"><span class="emoji">🚮</span><div><div class="label">거의 안 함</div><div class="desc">재활용 미흡 — ≈ 1.0 kg</div></div></label>
+          </div>
+        </div>
+
+        <div class="q">
+          <h3>🌡️ 냉난방 사용 <span class="hint">— 계절 평균</span></h3>
+          <div class="options" role="radiogroup" aria-label="냉난방">
+            <label class="opt"><input type="radio" name="hvac" value="low"><span class="emoji">🌤️</span><div><div class="label">적게 씀</div><div class="desc">온도권장 준수 — ≈ 0.8 kg</div></div></label>
+            <label class="opt"><input type="radio" name="hvac" value="mid"><span class="emoji">🌦️</span><div><div class="label">보통</div><div class="desc">적정 — ≈ 1.5 kg</div></div></label>
+            <label class="opt"><input type="radio" name="hvac" value="high"><span class="emoji">🔥</span><div><div class="label">많이 씀</div><div class="desc">장시간 가동 — ≈ 3.0 kg</div></div></label>
+          </div>
+        </div>
+
+        <div class="actions">
+          <button type="button" class="btn btn-secondary" id="resetBtn">초기화</button>
+          <button type="submit" class="btn btn-primary">결과 계산하기</button>
+        </div>
+      </form>
+    </section>
+
+    <!-- ========== RESULTS ========== -->
+    <section id="results" class="card" aria-live="polite">
+      <div class="results-grid">
+        <div>
+          <h2 style="margin:0 0 12px;">📊 오늘의 탄소발자국 결과</h2>
+          <div class="stat card" style="padding:16px;">
+            <div>
+              <div class="muted">총 배출량 (하루)</div>
+              <div class="big"><span id="totalKg">0.0</span> kg CO₂e</div>
+            </div>
+            <div id="levelTag" class="tag low">LOW</div>
+          </div>
+
+          <div class="bar-wrap" aria-hidden="true">
+            <div id="bar" class="bar" style="width:0%"></div>
+          </div>
+
+          <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:8px;">
+            <div class="pill">🔥 전기/냉난방: <strong id="shareEnergy">0%</strong></div>
+            <div class="pill">🚗 이동: <strong id="shareTransport">0%</strong></div>
+            <div class="pill">🍽️ 식습관: <strong id="shareDiet">0%</strong></div>
+            <div class="pill">🛍️ 소비: <strong id="shareShop">0%</strong></div>
+            <div class="pill">♻️ 폐기물: <strong id="shareWaste">0%</strong></div>
+          </div>
+
+          <canvas id="chart" width="640" height="320" style="margin-top:14px; width:100%; border:1px solid #eef2f8; border-radius:12px; background:#fff"></canvas>
+
+          <p class="muted" style="margin:10px 0 0;">※ 단순화된 교육용 모델입니다. 실제 수치는 지역/계절/사용량에 따라 달라질 수 있어요.</p>
+        </div>
+
+        <div>
+          <h3 style="margin:0 0 10px;">💡 나에게 맞춘 절감 팁</h3>
+          <div class="tips" id="tips"></div>
+          <hr style="border:none; border-top:1px solid #eef2f8; margin:16px 0;" />
+          <button class="btn btn-secondary" id="saveBtn" style="width:100%;">결과 저장하기</button>
+        </div>
+      </div>
+    </section>
+
+    <p class="footer-note">© 2025 탄소발자국 시뮬레이터 · 교육용 | 수치는 단순화·보정됨</p>
+  </div>
+
+  <script>
+    // =========================
+    // Simplified Emission Factors (kg CO2e / day)
+    // 교육용 단순값 — 과학적 정확성보다는 비교/탐색에 초점
+    // =========================
+    const FACTORS = {
+      transport: { walk: 0, bike: 0, bus: 1.0, carpool: 1.5, car: 3.0 },
+      diet: { vegan: 1.5, veg: 2.5, mixed_low: 3.5, mixed_high: 5.0 },
+      electric: { low: 0.8, mid: 1.5, high: 3.0 },
+      shopping: { rare: 0.2, normal: 0.5, often: 1.0 },
+      waste: { good: 0.2, mid: 0.5, poor: 1.0 },
+      hvac: { low: 0.8, mid: 1.5, high: 3.0 },
+    };
+
+    const form = document.getElementById('footprintForm');
+    const results = document.getElementById('results');
+    const totalKg = document.getElementById('totalKg');
+    const levelTag = document.getElementById('levelTag');
+    const bar = document.getElementById('bar');
+
+    const shareTransport = document.getElementById('shareTransport');
+    const shareDiet = document.getElementById('shareDiet');
+    const shareEnergy = document.getElementById('shareEnergy');
+    const shareShop = document.getElementById('shareShop');
+    const shareWaste = document.getElementById('shareWaste');
+
+    const saveBtn = document.getElementById('saveBtn');
+    const loadLast = document.getElementById('loadLast');
+    const resetBtn = document.getElementById('resetBtn');
+    const tipsBox = document.getElementById('tips');
+
+    // Canvas chart (no external libs)
+    const chart = document.getElementById('chart');
+    const ctx = chart.getContext('2d');
+
+    function getValue(name) {
+      const el = form.querySelector(`[name="${name}"]:checked`);
+      return el ? el.value : null;
+    }
+
+    function calc() {
+      const t = getValue('transport');
+      const d = getValue('diet');
+      const e = getValue('electric');
+      const s = getValue('shopping');
+      const w = getValue('waste');
+      const h = getValue('hvac');
+
+      if (!t || !d || !e || !s || !w || !h) {
+        alert('모든 항목을 선택해 주세요.');
+        return null;
+      }
+
+      const transport = FACTORS.transport[t];
+      const diet = FACTORS.diet[d];
+      const electric = FACTORS.electric[e];
+      const shopping = FACTORS.shopping[s];
+      const waste = FACTORS.waste[w];
+      const hvac = FACTORS.hvac[h];
+
+      const energy = electric + hvac; // 전기 + 냉난방 묶어 에너지로 집계
+      const total = transport + diet + energy + shopping + waste;
+
+      return { total, transport, diet, energy, shopping, waste, raw: {t, d, e, s, w, h} };
+    }
+
+    function level(total) {
+      if (total < 4) return { key: 'low', label: 'LOW', color:'#10b981' };
+      if (total < 8) return { key: 'mid', label: 'MID', color:'#f59e0b' };
+      return { key: 'high', label: 'HIGH', color:'#ef4444' };
+    }
+
+    function drawChart(parts) {
+      const labels = ['이동', '식습관', '에너지', '소비', '폐기물'];
+      const values = [parts.transport, parts.diet, parts.energy, parts.shopping, parts.waste];
+
+      // clear
+      ctx.clearRect(0, 0, chart.width, chart.height);
+
+      // padding
+      const P = { l: 48, r: 20, t: 20, b: 36 };
+      const W = chart.width - P.l - P.r;
+      const H = chart.height - P.t - P.b;
+
+      // axes
+      ctx.strokeStyle = '#e5eaf3';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(P.l, P.t);
+      ctx.lineTo(P.l, P.t + H);
+      ctx.lineTo(P.l + W, P.t + H);
+      ctx.stroke();
+
+      // bars
+      const n = values.length;
+      const gap = 20;
+      const barW = (W - gap * (n - 1)) / n;
+      const maxVal = Math.max(4, Math.max(...values) * 1.25);
+
+      values.forEach((v, i) => {
+        const x = P.l + i * (barW + gap);
+        const h = (v / maxVal) * H;
+        const y = P.t + H - h;
+        // bar
+        const grd = ctx.createLinearGradient(x, y, x, y + h);
+        grd.addColorStop(0, '#60a5fa');
+        grd.addColorStop(1, '#34d399');
+        ctx.fillStyle = grd;
+        ctx.fillRect(x, y, barW, h);
+
+        // label
+        ctx.fillStyle = '#0f172a';
+        ctx.font = '12px system-ui';
+        ctx.textAlign = 'center';
+        ctx.fillText(labels[i], x + barW/2, P.t + H + 18);
+
+        // value
+        ctx.fillStyle = '#475569';
+        ctx.fillText(v.toFixed(1) + 'kg', x + barW/2, y - 6);
+      });
+    }
+
+    function percent(x, total) { return total > 0 ? Math.round(x / total * 100) : 0; }
+
+    function renderTips(raw, parts) {
+      const tips = [];
+      // Transport
+      if (raw.t === 'car' || raw.t === 'carpool') {
+        tips.push({ icon: '🚌', text: '등하교 거리는 대중교통/자전거/도보로 바꿔보기. 주 2~3회만 바꿔도 체감 절감!' });
+      } else if (raw.t === 'bus') {
+        tips.push({ icon: '🚲', text: '대중교통 + 마지막 1km 자전거/도보 조합으로 더 줄이기.' });
+      }
+      // Diet
+      if (raw.d === 'mixed_high') {
+        tips.push({ icon: '🥗', text: '육류 위주 식단을 주 2회 “그린밀(채식/대체식)”로 바꿔보기.' });
+      } else if (raw.d === 'mixed_low') {
+        tips.push({ icon: '🍳', text: '달걀/두부 등 단백질로 균형 잡힌 “저탄소 한 끼” 늘리기.' });
+      }
+      // Energy (electric + hvac)
+      if (parts.energy > 2.0) {
+        tips.push({ icon: '💡', text: '사용하지 않는 콘센트 뽑기·대기전력 차단, 여름 26°C/겨울 20°C 지키기.' });
+      }
+      // Shopping
+      if (raw.s === 'often') {
+        tips.push({ icon: '🧵', text: '패스트패션 대신 오래 입는 기본템·수선/재사용 시도하기.' });
+      }
+      // Waste
+      if (raw.w !== 'good') {
+        tips.push({ icon: '♻️', text: '분리배출은 세척·건조 후 배출! 페트-라벨 분리, 생수병 뚜껑 따로.' });
+      }
+
+      // 기본 팁 보강
+      if (tips.length === 0) {
+        tips.push({ icon: '🌱', text: '이미 훌륭해요! 오늘은 물병/텀블러 사용, 엘리베이터 대신 계단 같은 스몰액션 도전.' });
+      }
+
+      tipsBox.innerHTML = tips.map(t => `
+        <div class="tip"><div style="font-size:20px;">${t.icon}</div><div>${t.text}</div></div>
+      `).join('');
+    }
+
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const data = calc();
+      if (!data) return;
+
+      const { total, transport, diet, energy, shopping, waste, raw } = data;
+      totalKg.textContent = total.toFixed(1);
+
+      // level tag
+      const lv = level(total);
+      levelTag.textContent = lv.label;
+      levelTag.className = `tag ${lv.key}`;
+
+      // progress bar (assume 0~12kg scale)
+      const pct = Math.max(0, Math.min(100, Math.round(total / 12 * 100)));
+      bar.style.width = pct + '%';
+
+      // shares
+      shareTransport.textContent = percent(transport, total) + '%';
+      shareDiet.textContent = percent(diet, total) + '%';
+      shareEnergy.textContent = percent(energy, total) + '%';
+      shareShop.textContent = percent(shopping, total) + '%';
+      shareWaste.textContent = percent(waste, total) + '%';
+
+      // draw chart
+      drawChart({ transport, diet, energy, shopping, waste });
+
+      // tips
+      renderTips(raw, { transport, diet, energy, shopping, waste });
+
+      results.style.display = 'block';
+      results.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+
+    saveBtn.addEventListener('click', () => {
+      const data = calc();
+      if (!data) return;
+      const payload = {
+        ts: new Date().toISOString(),
+        data
+      };
+      localStorage.setItem('footprint:last', JSON.stringify(payload));
+      alert('저장되었습니다. (이 브라우저에서만 조회 가능)');
+    });
+
+    loadLast.addEventListener('click', () => {
+      const raw = localStorage.getItem('footprint:last');
+      if (!raw) { alert('저장된 결과가 없습니다.'); return; }
+      const payload = JSON.parse(raw);
+      // 복원은 계산치만 표시
+      const { total, transport, diet, energy, shopping, waste } = payload.data;
+      totalKg.textContent = Number(total).toFixed(1);
+      const lv = level(total);
+      levelTag.textContent = lv.label;
+      levelTag.className = `tag ${lv.key}`;
+      bar.style.width = Math.max(0, Math.min(100, Math.round(total / 12 * 100))) + '%';
+      shareTransport.textContent = percent(transport, total) + '%';
+      shareDiet.textContent = percent(diet, total) + '%';
+      shareEnergy.textContent = percent(energy, total) + '%';
+      shareShop.textContent = percent(shopping, total) + '%';
+      shareWaste.textContent = percent(waste, total) + '%';
+      drawChart({ transport, diet, energy, shopping, waste });
+      tipsBox.innerHTML = '<div class="muted">이전 결과의 팁은 선택지 복원이 없어 재계산 시 갱신됩니다.</div>';
+      results.style.display = 'block';
+      results.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+
+    resetBtn.addEventListener('click', () => {
+      form.reset();
+      results.style.display = 'none';
+      ctx.clearRect(0, 0, chart.width, chart.height);
+      bar.style.width = '0%';
+      tipsBox.innerHTML = '';
+    });
+  </script>
+</body>
+</html>
